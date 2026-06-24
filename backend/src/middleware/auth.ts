@@ -58,12 +58,13 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     if (!id || typeof id !== "string") throw unauthorized("Invalid token");
     const email = (typeof payload.email === "string" ? payload.email : null) ?? null;
 
-    // Ensure the profile exists (FK target for attempts). Trigger is primary.
-    await prisma.profile.upsert({
-      where: { id },
-      create: { id, email },
-      update: email ? { email } : {},
-    });
+    // Ensure the profile exists (FK target for attempts). The DB trigger is the
+    // primary path, so this is a cheap read on the common path; we only write
+    // (upsert) on the rare occasion the row is genuinely missing.
+    const exists = await prisma.profile.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) {
+      await prisma.profile.upsert({ where: { id }, create: { id, email }, update: {} });
+    }
 
     (req as AuthedRequest).user = { id, email };
     next();

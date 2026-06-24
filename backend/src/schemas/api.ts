@@ -37,6 +37,19 @@ export const updateProfileSchema = z.object({
   model: z.string().min(1).optional(),
 });
 
+/** Grade a free-form writing drill from the Learn guide (no attempt created). */
+export const learnGradeSchema = z.object({
+  task: z.enum(["task1", "task2"]),
+  prompt: z.string().min(1).max(4000),
+  text: z.string().min(1).max(8000),
+});
+
+/** Request a Band 9 model answer for a Learn writing drill. */
+export const learnModelSchema = z.object({
+  task: z.enum(["task1", "task2"]),
+  prompt: z.string().min(1).max(4000),
+});
+
 export const ttsSchema = z.object({
   transcript: z.string().min(1).max(8000),
 });

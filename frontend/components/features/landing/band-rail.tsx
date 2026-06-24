@@ -20,6 +20,10 @@ export function BandRail() {
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Track timers so they're all cleared on unmount (no setState/DOM writes
+    // after the component is gone).
+    let interval: ReturnType<typeof setInterval> | undefined;
+
     const apply = () => {
       if (fillRef.current) fillRef.current.style.height = `${PCT}%`;
       if (markerRef.current) {
@@ -32,11 +36,11 @@ export function BandRail() {
         return;
       }
       let v = BOTTOM;
-      const t = setInterval(() => {
+      interval = setInterval(() => {
         v += 0.1;
         if (v >= PREDICTED) {
           v = PREDICTED;
-          clearInterval(t);
+          if (interval) clearInterval(interval);
         }
         if (readoutRef.current) readoutRef.current.textContent = v.toFixed(1);
       }, 28);
@@ -47,7 +51,10 @@ export function BandRail() {
       return;
     }
     const id = window.setTimeout(apply, 350);
-    return () => window.clearTimeout(id);
+    return () => {
+      window.clearTimeout(id);
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   return (
