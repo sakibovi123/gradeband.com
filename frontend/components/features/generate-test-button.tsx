@@ -7,8 +7,8 @@ import { useApi } from "@/hooks/use-api";
 import { Button, type ButtonProps } from "@/components/ui/button";
 
 /**
- * Generates a full mock test (server-side, ~10-30s) and routes into the runner.
- * Shows progress so the UI is never silently blocked.
+ * Generates a full mock test (Reading + Writing, server-side ~10-30s) and routes
+ * into the runner. Shows progress so the UI is never silently blocked.
  */
 export function GenerateTestButton(props: ButtonProps) {
   const { call } = useApi();
@@ -46,7 +46,7 @@ export function GenerateTestButton(props: ButtonProps) {
       </Button>
       {loading && (
         <p className="text-xs text-muted">
-          Writing Listening, Reading &amp; Writing plus audio — this takes a little while.
+          Writing your Reading passage &amp; Writing prompts — this takes a little while.
         </p>
       )}
       {error && (

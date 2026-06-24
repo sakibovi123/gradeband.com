@@ -34,7 +34,7 @@ const schema = z.object({
 
   // OpenRouter
   OPENROUTER_API_KEY: z.string().min(1).optional(),
-  OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("anthropic/claude-3.5-sonnet"),
+  OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4.6"),
 
   // OpenAI TTS
   OPENAI_API_KEY: z.string().min(1).optional(),

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { chatJson } from "../lib/openrouter.js";
 import { writingGradeSchema, type WritingGrade } from "../schemas/grading.js";
 import { roundToHalf } from "./scoring.js";
@@ -41,6 +42,40 @@ export async function gradeWritingTask(
     system: SYSTEM,
     user: userPrompt(task, prompt, essay),
   });
+}
+
+const modelAnswerSchema = z.object({ answer: z.string().min(50) });
+
+/**
+ * Produce a Band 9 model answer for a writing task, so the candidate can study
+ * what a top-scoring response looks like. The prompt for Task 1 should already
+ * include the figure's data (so the model answer cites accurate numbers).
+ */
+export async function generateModelAnswer(
+  task: "task1" | "task2",
+  prompt: string,
+  model?: string,
+): Promise<string> {
+  const target = task === "task1" ? "150–190 words" : "270–300 words";
+  const kind =
+    task === "task1"
+      ? "Academic Writing Task 1 (describe the figure with a clear overview plus key features, accurate data and comparisons; no opinions, no causes)"
+      : "Academic Writing Task 2 (a discursive essay with a clear position, well-developed paragraphs using topic sentences and specific examples, and strong cohesion)";
+  const r = await chatJson({
+    label: `model-${task}`,
+    model,
+    temperature: 0.5,
+    schema: modelAnswerSchema,
+    system:
+      "You are an IELTS examiner and expert writer. Produce a Band 9 model answer that fully satisfies all four official descriptors. Output JSON only.",
+    user: `Write a Band 9 model answer for this ${kind}.
+
+PROMPT:
+${prompt}
+
+Write ${target}. Use natural, sophisticated English with varied complex structures, precise vocabulary, and clear paragraphing (separate paragraphs with blank lines). Return JSON: {"answer":"<the response as plain text>"}.`,
+  });
+  return r.answer;
 }
 
 export interface WritingSectionGrade {

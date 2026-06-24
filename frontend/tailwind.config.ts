@@ -23,6 +23,8 @@ const config: Config = {
         muted: "hsl(var(--muted))",
         accent: "hsl(var(--accent))",
         "accent-foreground": "hsl(var(--accent-foreground))",
+        coral: "hsl(var(--coral))",
+        "coral-foreground": "hsl(var(--coral-foreground))",
         success: "hsl(var(--success))",
         line: "hsl(var(--line))",
         // shadcn-compatible aliases so primitives work out of the box.
@@ -51,6 +53,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-display)", "Georgia", "serif"],
       },
       keyframes: {
         "accordion-down": {

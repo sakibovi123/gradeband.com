@@ -96,38 +96,53 @@ export async function generateWriting(model?: string): Promise<WritingSection> {
     system:
       "You are an IELTS Academic Writing item writer. Output JSON only.",
     user: `Create IELTS Academic Writing prompts.
-- "task1.prompt": an Academic Task 1 describing a visual (chart/graph/table/process/map). Fully describe the data in words so the candidate can respond without an image. Ask for at least 150 words in ~20 minutes.
-- "task2.prompt": an Academic Task 2 essay question (opinion / discussion / problem-solution). Ask for at least 250 words in ~40 minutes.
+
+- "task1": an Academic Task 1 built around ONE figure the candidate must describe.
+  - "task1.visual": structured data for the figure. "kind" MUST be exactly one of
+    these tokens (no other words): "table", "bar", "line", "pie".
+    • "table" — categories are the column headers; each series is a row (name = row label).
+    • "bar" — a bar chart; categories are the x-axis groups; each series is a set of bars.
+    • "line" — a line graph over time; categories are time points (e.g. years); each series is a line.
+    • "pie" — proportions; categories are the slice labels; use a SINGLE series.
+    Provide "title", optional "unit" (e.g. "%", "millions"), "categories", and "series"
+    where every series has exactly one number per category. Use realistic, varied
+    numbers with a clear trend or comparison to write about (2-5 series, 3-8 categories).
+  - "task1.prompt": the task wording that refers to the figure, e.g. "The {kind} below shows
+    ... Summarise the information by selecting and reporting the main features, and make
+    comparisons where relevant." Do NOT list the numbers in prose — the figure carries the
+    data. Ask for at least 150 words in ~20 minutes.
+- "task2.prompt": an Academic Task 2 essay question (opinion / discussion / problem-solution).
+  Ask for at least 250 words in ~40 minutes.
 Return STRICT JSON only.`,
   });
-  return data;
+  // `kind` is normalized to the enum at parse time; the cast bridges a Zod
+  // transform-inference quirk (it widens to string in this position).
+  return data as WritingSection;
 }
 
 /**
- * Orchestrates generation of all three sections (parallel) plus Listening TTS,
- * then persists a MockTest. Returns the created record id.
+ * Orchestrates generation of the in-scope sections (Reading + Writing) in
+ * parallel, then persists a MockTest. Returns the created record id.
+ *
+ * Listening is out of scope for now: it is persisted as an empty section so the
+ * runner cleanly skips it. The Listening generators below are kept intact for
+ * when the module is re-enabled.
  */
 export async function generateMockTest(model?: string): Promise<string> {
   logger.info("Generating mock test", { model: model ?? "default" });
 
-  const [reading, listeningBase, writing] = await Promise.all([
+  const [reading, writing] = await Promise.all([
     generateReading(model),
-    generateListening(model),
     generateWriting(model),
   ]);
 
-  // Synthesize audio for the listening transcript (cached by hash). Non-fatal:
-  // the runner can fall back to on-device speech if audio is unavailable.
-  let audioUrl: string | null = null;
-  try {
-    audioUrl = await synthesizeListeningAudio(listeningBase.transcript);
-  } catch (err) {
-    logger.warn("TTS failed; listening will use fallback", {
-      message: (err as Error)?.message,
-    });
-  }
-
-  const listening: ListeningSection = { ...listeningBase, audioUrl };
+  // Listening intentionally left empty (out of scope) — no questions, no audio.
+  const listening: ListeningSection = {
+    title: "",
+    transcript: "",
+    audioUrl: null,
+    questions: [],
+  };
 
   const test = await prisma.mockTest.create({
     data: {

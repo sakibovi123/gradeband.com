@@ -27,15 +27,20 @@ export function ThemeToggle() {
     setTheme(order[(idx + 1) % order.length]!);
   }
 
+  // Until mounted, render the theme-independent "system" state so the server
+  // and first client render match (next-themes only knows the real theme on the
+  // client). This prevents an aria-label/title/icon hydration mismatch.
+  const display = mounted ? current : "system";
+
   return (
     <Button
       variant="outline"
       size="icon"
       onClick={next}
-      aria-label={`Theme: ${current}. Click to change.`}
-      title={`Theme: ${current}`}
+      aria-label={`Theme: ${display}. Click to change.`}
+      title={`Theme: ${display}`}
     >
-      {mounted ? icons[current] : <Monitor />}
+      {icons[display]}
     </Button>
   );
 }

@@ -3,37 +3,43 @@
 @tailwind utilities;
 
 /*
-  Semantic theme tokens — "exam paper meets modern app".
+  Semantic theme tokens — "The Band Meter": exam-paper workspace, a teal brand
+  used like an examiner's pen, and a single coral reserved for the primary call
+  to action. Mirrors the landing palette so the whole app reads as one product.
   Components read these via Tailwind (bg-bg, text-ink, border-line, ...).
-  One confident accent, used like an examiner's pen. Everything else quiet.
 */
 @layer base {
   :root {
-    --bg: 40 33% 98%;          /* warm paper white */
-    --surface: 0 0% 100%;
-    --ink: 222 30% 14%;        /* near-black text */
-    --muted: 222 12% 45%;
-    --accent: 221 83% 53%;     /* the pen */
+    --bg: 75 10% 93%;          /* cool exam-paper grey-green */
+    --surface: 60 17% 98%;     /* bone card surface */
+    --ink: 171 26% 10%;        /* deep spruce text */
+    --muted: 160 8% 39%;       /* slate-green muted */
+    --accent: 171 76% 27%;     /* teal — the pen / brand / data */
     --accent-foreground: 0 0% 100%;
-    --success: 152 56% 38%;
+    --coral: 11 100% 65%;      /* the one CTA / urgency accent */
+    --coral-foreground: 171 26% 10%;
+    --success: 150 42% 38%;
     --destructive: 0 72% 51%;
-    --line: 222 14% 89%;       /* hairline borders */
+    --line: 75 9% 83%;         /* hairline borders */
     --radius: 0.625rem;
 
-    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono: var(--font-space-mono), ui-monospace, "SF Mono", monospace;
+    --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
   }
 
   .dark {
-    --bg: 222 28% 9%;
-    --surface: 222 24% 13%;
-    --ink: 40 20% 94%;
-    --muted: 222 12% 62%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 222 47% 11%;
-    --success: 152 50% 50%;
+    --bg: 171 26% 8%;          /* deep spruce night */
+    --surface: 171 22% 12%;
+    --ink: 60 17% 95%;
+    --muted: 160 8% 62%;
+    --accent: 171 55% 45%;     /* brightened teal */
+    --accent-foreground: 171 30% 10%;
+    --coral: 11 100% 66%;
+    --coral-foreground: 171 30% 10%;
+    --success: 150 45% 52%;
     --destructive: 0 63% 55%;
-    --line: 222 16% 22%;
+    --line: 171 16% 20%;
   }
 
   * {
@@ -41,8 +47,14 @@
   }
 
   body {
-    @apply bg-bg text-ink antialiased;
+    @apply bg-bg text-ink antialiased font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Page titles carry the display serif app-wide; UI titles stay sans. */
+  h1,
+  h2 {
+    @apply font-display;
   }
 
   /* Respect reduced-motion preference globally. */

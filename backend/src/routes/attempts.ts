@@ -4,17 +4,27 @@ import { asyncHandler, badRequest, notFound } from "../lib/http.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { autosaveSchema } from "../schemas/api.js";
-import { gradeAttempt, toPublicTest } from "../services/attempts.js";
+import { gradeAttempt, toPublicTest, parseSections } from "../services/attempts.js";
 
 export const attemptsRouter = Router();
 
 attemptsRouter.use(requireAuth);
 
+/** Which sections actually carry content in a stored test. */
+function sectionsOf(mock: { listening: unknown; reading: unknown; writing: unknown }): string[] {
+  const s = parseSections(mock);
+  const out: string[] = [];
+  if (s.listening && s.listening.questions.length > 0) out.push("listening");
+  if (s.reading && s.reading.questions.length > 0) out.push("reading");
+  if (s.writing && (s.writing.task1.prompt || s.writing.task2.prompt)) out.push("writing");
+  return out;
+}
+
 /** GET /api/attempts — list the user's attempts (history / dashboard). */
 attemptsRouter.get(
   "/",
   asyncHandler(async (req: AuthedRequest, res) => {
-    const attempts = await prisma.attempt.findMany({
+    const rows = await prisma.attempt.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "desc" },
       select: {
@@ -26,8 +36,18 @@ attemptsRouter.get(
         overallBand: true,
         createdAt: true,
         mockTestId: true,
+        // Section content drives the practice-vs-mock label below.
+        mockTest: { select: { listening: true, reading: true, writing: true } },
       },
     });
+
+    // Derive the attempt "type" without an extra column: a single populated
+    // section means a practice drill; more than one means a full mock test.
+    const attempts = rows.map(({ mockTest, ...rest }) => {
+      const sections = sectionsOf(mockTest);
+      return { ...rest, sections, mode: sections.length <= 1 ? "practice" : "mock" };
+    });
+
     res.json({ attempts });
   }),
 );

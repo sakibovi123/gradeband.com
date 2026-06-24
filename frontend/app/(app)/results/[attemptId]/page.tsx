@@ -1,9 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Headphones, BookOpen, PenLine, Lightbulb, ArrowRight } from "lucide-react";
+import {
+  Loader2,
+  Headphones,
+  BookOpen,
+  PenLine,
+  Lightbulb,
+  ArrowRight,
+  Sparkles,
+  ChevronDown,
+} from "lucide-react";
 import { useApi } from "@/hooks/use-api";
 import { BandGauge } from "@/components/features/band-gauge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,10 +84,13 @@ export default function ResultsPage() {
           <CardHeader>
             <CardTitle>Section breakdown</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <SectionBand icon={<Headphones className="size-4" />} label="Listening" band={a.listeningBand} />
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <SectionBand icon={<BookOpen className="size-4" />} label="Reading" band={a.readingBand} />
             <SectionBand icon={<PenLine className="size-4" />} label="Writing" band={a.writingBand} />
+            {/* Listening only appears for legacy tests that were scored for it. */}
+            {a.listeningBand != null && (
+              <SectionBand icon={<Headphones className="size-4" />} label="Listening" band={a.listeningBand} />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -85,8 +98,12 @@ export default function ResultsPage() {
       {/* Writing detail */}
       {w && (
         <div className="grid gap-6 lg:grid-cols-2">
-          {w.task1 && <WritingCard title="Writing — Task 1" grade={w.task1} />}
-          {w.task2 && <WritingCard title="Writing — Task 2" grade={w.task2} />}
+          {w.task1 && (
+            <WritingCard title="Writing — Task 1" grade={w.task1} modelAnswer={w.modelAnswers?.task1} />
+          )}
+          {w.task2 && (
+            <WritingCard title="Writing — Task 2" grade={w.task2} modelAnswer={w.modelAnswers?.task2} />
+          )}
         </div>
       )}
 
@@ -151,7 +168,15 @@ function SectionBand({
   );
 }
 
-function WritingCard({ title, grade }: { title: string; grade: WritingGrade }) {
+function WritingCard({
+  title,
+  grade,
+  modelAnswer,
+}: {
+  title: string;
+  grade: WritingGrade;
+  modelAnswer?: string | null;
+}) {
   const criteria: [string, number][] = [
     ["Task Response", grade.criteria.taskResponse],
     ["Coherence & Cohesion", grade.criteria.coherenceCohesion],
@@ -194,7 +219,36 @@ function WritingCard({ title, grade }: { title: string; grade: WritingGrade }) {
             </ul>
           </div>
         </div>
+        {modelAnswer && <ModelAnswer text={modelAnswer} />}
       </CardContent>
     </Card>
+  );
+}
+
+function ModelAnswer({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lg border border-accent/30 bg-accent/[0.04]">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
+      >
+        <Sparkles className="size-4 text-accent" />
+        <span className="text-sm font-semibold">Band 9 model answer</span>
+        <ChevronDown
+          className={`ml-auto size-4 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="border-t border-accent/20 px-4 py-3">
+          <p className="whitespace-pre-wrap text-[14px] leading-7">{text}</p>
+          <p className="mt-3 text-xs text-muted">
+            A sample high-scoring response — study its structure and language, then try again.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
