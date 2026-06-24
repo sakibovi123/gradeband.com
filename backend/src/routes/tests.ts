@@ -1,11 +1,10 @@
 import { Router } from "express";
 import { prisma } from "../lib/db.js";
-import { asyncHandler, notFound } from "../lib/http.js";
+import { asyncHandler } from "../lib/http.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { generateTestSchema } from "../schemas/api.js";
 import { generateMockTest } from "../services/generation.js";
-import { toPublicTest } from "../services/attempts.js";
 
 export const testsRouter = Router();
 
@@ -13,8 +12,11 @@ testsRouter.use(requireAuth);
 
 /**
  * POST /api/tests/generate
- * Generates a full mock test (Listening + Reading + Writing + audio) and opens
- * an in-progress attempt for the user. Generation can take many seconds.
+ * Generates a mock test (Reading + Writing) and opens an in-progress attempt
+ * for the user. Generation can take many seconds.
+ *
+ * Note: test content is read back via GET /api/attempts/:id, which is scoped to
+ * the owning user — there is intentionally no unscoped GET /api/tests/:id.
  */
 testsRouter.post(
   "/generate",
@@ -27,16 +29,6 @@ testsRouter.post(
       data: { userId: req.user.id, mockTestId: testId, answers: {} },
     });
     res.status(201).json({ testId, attemptId: attempt.id });
-  }),
-);
-
-/** GET /api/tests/:id — answer-free test content for the runner. */
-testsRouter.get(
-  "/:id",
-  asyncHandler(async (req: AuthedRequest, res) => {
-    const test = await prisma.mockTest.findUnique({ where: { id: req.params.id } });
-    if (!test) throw notFound("Test not found");
-    res.json(toPublicTest(test));
   }),
 );
 

@@ -10,15 +10,29 @@ import {
   type WritingSection,
   type Question,
   type PublicQuestion,
+  type WritingVisual,
 } from "../schemas/test.js";
 import type { AnswersPayload } from "../schemas/api.js";
 import { gradeObjective, rawToBand, overallBand } from "./scoring.js";
-import { gradeWritingTask, combineWritingBand } from "./grading.js";
+import { gradeWritingTask, combineWritingBand, generateModelAnswer } from "./grading.js";
 import { generateFocusPlan } from "./feedback.js";
 
 /** Remove the answer key before sending questions to the client. */
 function stripAnswers(questions: Question[]): PublicQuestion[] {
   return questions.map(({ answer: _answer, ...rest }) => rest);
+}
+
+/** Render a Task 1 figure as plain text so the writing grader can check accuracy. */
+function visualToText(v: WritingVisual): string {
+  const unit = v.unit ? ` ${v.unit}` : "";
+  const header = `${v.title} (categories: ${v.categories.join(", ")})`;
+  const rows = v.series.map(
+    (s) =>
+      `- ${s.name}: ${s.values
+        .map((val, i) => `${v.categories[i] ?? `#${i + 1}`}=${val}${unit}`)
+        .join(", ")}`,
+  );
+  return [header, ...rows].join("\n");
 }
 
 /** Parse the stored JSON sections defensively. */
@@ -112,21 +126,36 @@ export async function gradeAttempt(attemptId: string, userId: string) {
   const task2Text = answers.writing?.task2?.trim();
 
   if (writing) {
-    const [t1, t2] = await Promise.all([
+    // Give the Task 1 grader the figure's data (the prompt no longer restates it),
+    // so it can judge accuracy of the candidate's reported numbers/trends.
+    const task1Prompt = writing.task1.visual
+      ? `${writing.task1.prompt}\n\nFigure data (${writing.task1.visual.kind}):\n${visualToText(writing.task1.visual)}`
+      : writing.task1.prompt;
+
+    // Grade the attempted tasks and, in parallel, generate Band 9 model answers
+    // for the same tasks so the results page can show what top work looks like.
+    const [t1, t2, m1, m2] = await Promise.all([
       writing.task1.prompt && task1Text
-        ? gradeWritingTask("task1", writing.task1.prompt, task1Text, model)
+        ? gradeWritingTask("task1", task1Prompt, task1Text, model)
         : Promise.resolve(undefined),
       writing.task2.prompt && task2Text
         ? gradeWritingTask("task2", writing.task2.prompt, task2Text, model)
         : Promise.resolve(undefined),
+      writing.task1.prompt && task1Text
+        ? generateModelAnswer("task1", task1Prompt, model).catch(() => null)
+        : Promise.resolve(null),
+      writing.task2.prompt && task2Text
+        ? generateModelAnswer("task2", writing.task2.prompt, model).catch(() => null)
+        : Promise.resolve(null),
     ]);
+    const modelAnswers = { task1: m1 ?? null, task2: m2 ?? null };
     if (t2) {
       writingBand = combineWritingBand(t2.band, t1?.band);
-      writingDetail = { task1: t1 ?? null, task2: t2, combinedBand: writingBand };
+      writingDetail = { task1: t1 ?? null, task2: t2, combinedBand: writingBand, modelAnswers };
     } else if (t1) {
       // Only Task 1 attempted.
       writingBand = t1.band;
-      writingDetail = { task1: t1, task2: null, combinedBand: writingBand };
+      writingDetail = { task1: t1, task2: null, combinedBand: writingBand, modelAnswers };
     }
   }
 

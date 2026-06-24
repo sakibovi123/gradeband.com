@@ -20,8 +20,16 @@ export interface PublicReading {
   questions: PublicQuestion[];
   hasContent: boolean;
 }
+/** Structured Task 1 figure, rendered as a table or chart in the runner. */
+export interface WritingVisual {
+  kind: "table" | "bar" | "line" | "pie";
+  title: string;
+  unit?: string;
+  categories: string[];
+  series: { name: string; values: number[] }[];
+}
 export interface PublicWriting {
-  task1: { prompt: string } | null;
+  task1: { prompt: string; visual?: WritingVisual } | null;
   task2: { prompt: string } | null;
 }
 
@@ -68,11 +76,16 @@ export interface Attempt {
     task1: WritingGrade | null;
     task2: WritingGrade | null;
     combinedBand: number;
+    modelAnswers?: { task1: string | null; task2: string | null } | null;
   } | null;
   focusPlan: FocusPlan | null;
   answers?: AnswersPayload;
   createdAt: string;
   mockTestId: string;
+  /** Present on list responses: "mock" (multi-section) or "practice" (single). */
+  mode?: "mock" | "practice";
+  /** Present on list responses: section keys with content, e.g. ["reading","writing"]. */
+  sections?: string[];
 }
 
 export interface Profile {

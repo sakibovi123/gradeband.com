@@ -24,7 +24,7 @@ model Profile {
   examDate   DateTime?
   targetBand Float     @default(7.0)
   theme      String    @default("system") // light | dark | system
-  model      String    @default("anthropic/claude-3.5-sonnet")
+  model      String    @default("anthropic/claude-sonnet-4.6")
   attempts   Attempt[]
   createdAt  DateTime  @default(now())
 

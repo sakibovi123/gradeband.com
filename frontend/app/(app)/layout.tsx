@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AppNav } from "@/components/features/app-nav";
+import { AppShell } from "@/components/features/app-shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -11,10 +11,5 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Middleware already gates these routes; this is a second line of defense.
   if (!user) redirect("/login");
 
-  return (
-    <div className="min-h-dvh">
-      <AppNav email={user.email ?? null} />
-      <main className="container py-8">{children}</main>
-    </div>
-  );
+  return <AppShell email={user.email ?? null}>{children}</AppShell>;
 }

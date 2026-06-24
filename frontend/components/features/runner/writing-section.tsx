@@ -4,10 +4,11 @@ import * as React from "react";
 import { PenLine } from "lucide-react";
 import type { PublicWriting } from "@/lib/types";
 import { wordCount } from "@/lib/format";
-import { useCountdown } from "@/hooks/use-countdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { SectionTimer } from "./section-timer";
+import { SectionClock } from "./section-clock";
+import { WritingVisual } from "./writing-visual";
+import { WritingHints } from "./writing-hints";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -38,7 +39,6 @@ export function WritingSection({
 }: Props) {
   const hasTask1 = Boolean(data.task1?.prompt);
   const [tab, setTab] = React.useState<"task1" | "task2">(hasTask1 ? "task1" : "task2");
-  const remaining = useCountdown(durationSec, { running: !practice, onExpire: onNext });
 
   const active = tab === "task1" ? data.task1 : data.task2;
   const value = tab === "task1" ? task1 : task2;
@@ -48,12 +48,17 @@ export function WritingSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-14 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 bg-bg/90 px-1 py-2 backdrop-blur">
+      <div className="sticky top-16 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 bg-bg/90 px-1 py-2 backdrop-blur">
         <div className="flex items-center gap-2">
           <PenLine className="size-5 text-accent" />
           <h2 className="font-semibold">Writing</h2>
         </div>
-        {!practice && <SectionTimer remaining={remaining} label="Writing" />}
+        <SectionClock
+          durationSec={durationSec}
+          label="Writing"
+          mode={practice ? "manual" : "auto"}
+          onExpire={practice ? undefined : onNext}
+        />
       </div>
 
       {hasTask1 && (
@@ -83,9 +88,19 @@ export function WritingSection({
             </span>
           </div>
           <p className="whitespace-pre-wrap text-[15px] leading-7">{active?.prompt}</p>
+          {tab === "task1" && data.task1?.visual && (
+            <div className="mt-4">
+              <WritingVisual visual={data.task1.visual} />
+            </div>
+          )}
+          {practice && (
+            <div className="mt-4">
+              <WritingHints task={tab} />
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col overflow-hidden rounded-lg border border-line bg-surface lg:max-h-[calc(100dvh-12rem)]">
           <Textarea
             value={value}
             onChange={(e) => onChange(tab, e.target.value)}
@@ -93,12 +108,23 @@ export function WritingSection({
             autoCorrect="off"
             autoCapitalize="off"
             placeholder="Type your response here…"
-            className="min-h-[calc(100dvh-18rem)] resize-none font-sans leading-7"
+            className="min-h-[440px] flex-1 resize-none rounded-none border-0 bg-transparent p-5 font-sans text-[15px] leading-7 focus-visible:ring-0 lg:min-h-0"
             aria-label={`${tab === "task1" ? "Task 1" : "Task 2"} response`}
           />
-          <div className="flex items-center justify-between text-xs">
-            <span className={cn("font-mono", count < minWords ? "text-muted" : "text-success")}>
-              {count} words {count < minWords ? `(min ${minWords})` : "✓"}
+          {/* Sticky footer: live word-count progress toward the task minimum. */}
+          <div className="flex items-center justify-between gap-3 border-t border-line bg-surface px-4 py-2.5 text-xs">
+            <span className="flex items-baseline gap-1.5">
+              <span
+                className={cn(
+                  "font-mono text-sm font-semibold tabular-nums",
+                  count < minWords ? "text-ink" : "text-success",
+                )}
+              >
+                {count}
+              </span>
+              <span className="text-muted">
+                / {minWords} words {count >= minWords ? "✓" : null}
+              </span>
             </span>
             <span className="text-muted">Spell-check off, like the real exam</span>
           </div>

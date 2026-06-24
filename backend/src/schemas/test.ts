@@ -41,8 +41,37 @@ export const llmReadingSchema = z.object({
   questions: z.array(llmQuestionSchema).min(8).max(12),
 });
 
+/**
+ * Structured data for an Academic Task 1 figure, rendered natively as a table
+ * or chart in the runner (instead of describing the data in prose). One value
+ * per category in every series.
+ * - table: categories = column headers; each series is a row.
+ * - bar/line: categories = x-axis; each series is a bar group / line.
+ * - pie: categories = slice labels; each series is one pie.
+ */
+/** Normalize loose model phrasings ("bar chart", "line graph") to our tokens. */
+type VisualKind = "table" | "bar" | "line" | "pie";
+const visualKindSchema = z.string().transform((val): VisualKind => {
+  const v = val.toLowerCase().trim();
+  if (v.includes("table")) return "table";
+  if (v.includes("line")) return "line";
+  if (v.includes("pie")) return "pie";
+  return "bar"; // default for "bar" / "column" / anything unrecognized
+});
+
+export const writingVisualSchema = z.object({
+  kind: visualKindSchema,
+  title: z.string().min(1),
+  unit: z.string().optional(),
+  categories: z.array(z.string().min(1)).min(1),
+  series: z
+    .array(z.object({ name: z.string().min(1), values: z.array(z.number()) }))
+    .min(1),
+});
+export type WritingVisual = z.infer<typeof writingVisualSchema>;
+
 export const llmWritingSchema = z.object({
-  task1: z.object({ prompt: z.string().min(1) }),
+  task1: z.object({ prompt: z.string().min(1), visual: writingVisualSchema }),
   task2: z.object({ prompt: z.string().min(1) }),
 });
 
@@ -66,7 +95,7 @@ export const readingSectionSchema = z.object({
 export type ReadingSection = z.infer<typeof readingSectionSchema>;
 
 export const writingSectionSchema = z.object({
-  task1: z.object({ prompt: z.string() }),
+  task1: z.object({ prompt: z.string(), visual: writingVisualSchema.optional() }),
   task2: z.object({ prompt: z.string() }),
 });
 export type WritingSection = z.infer<typeof writingSectionSchema>;

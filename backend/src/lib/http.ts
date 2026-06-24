@@ -46,6 +46,11 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
       ...(err.details ? { details: err.details } : {}),
     });
   }
+  // Malformed JSON body (raised by express.json/body-parser) → client error.
+  const e = err as { type?: string; status?: number } | undefined;
+  if (err instanceof SyntaxError && (e?.status === 400 || e?.type === "entity.parse.failed")) {
+    return res.status(400).json({ error: "Invalid JSON in request body" });
+  }
   logger.error("Unhandled error", { message: (err as Error)?.message });
   return res.status(500).json({ error: "Internal server error" });
 }

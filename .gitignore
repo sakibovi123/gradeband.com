@@ -40,3 +40,7 @@ test-results/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# backups (never commit env backups)
+*.bak
+.env.bak*

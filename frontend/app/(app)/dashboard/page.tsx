@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmtBand, fmtDate, daysUntil } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Attempt, Profile } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -30,51 +31,71 @@ export default function DashboardPage() {
   const graded = attempts.filter((a) => a.status === "graded");
   const latest = graded[0];
   const days = daysUntil(profile?.examDate);
+  const urgent = days != null && days <= 14;
 
   const chartData = [...graded]
     .reverse()
     .map((a, i) => ({ label: `#${i + 1}`, overall: a.overallBand }));
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-col gap-9">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {profile?.name ? `Hi, ${profile.name}` : "Dashboard"}
+          <div className="flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
+            <span className="h-px w-5 bg-accent" />
+            Your workspace
+          </div>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            {profile?.name ? `Hi, ${profile.name}.` : "Dashboard"}
           </h1>
-          <p className="text-sm text-muted">Practise under real exam conditions. Bands are estimates.</p>
+          <p className="mt-2 text-muted">
+            Practise under real exam conditions. Bands shown are estimates.
+          </p>
         </div>
-        <GenerateTestButton size="lg" />
+        <GenerateTestButton
+          size="lg"
+          className="bg-coral text-coral-foreground hover:bg-coral/90"
+        />
       </div>
 
       {/* Top stat row */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
-          icon={<CalendarClock className="size-4" />}
+          icon={<CalendarClock className="size-3.5" />}
           label="Exam countdown"
           value={
-            profileQ.isLoading ? "…" : days == null ? "Not set" : `${days} day${days === 1 ? "" : "s"}`
+            profileQ.isLoading
+              ? "…"
+              : days == null
+                ? "Not set"
+                : `${days} day${days === 1 ? "" : "s"}`
           }
           sub={profile?.examDate ? fmtDate(profile.examDate) : "Set your exam date in Profile"}
+          accent={urgent ? "coral" : "ink"}
         />
         <StatCard
-          icon={<Target className="size-4" />}
+          icon={<Target className="size-3.5" />}
           label="Target band"
           value={profileQ.isLoading ? "…" : fmtBand(profile?.targetBand ?? null)}
           sub="Adjust in Profile"
         />
         <StatCard
-          icon={<TrendingUp className="size-4" />}
+          icon={<TrendingUp className="size-3.5" />}
           label="Latest overall"
           value={attemptsQ.isLoading ? "…" : fmtBand(latest?.overallBand ?? null)}
           sub={latest ? fmtDate(latest.createdAt) : "No graded tests yet"}
+          accent="teal"
         />
       </div>
 
+      {/* Gauge + progress */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Latest estimate</CardTitle>
+            <CardTitle className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+              Latest estimate
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center pb-8">
             {attemptsQ.isLoading ? (
@@ -87,7 +108,9 @@ export default function DashboardPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Progress over time</CardTitle>
+            <CardTitle className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+              Progress over time
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {attemptsQ.isLoading ? (
@@ -102,7 +125,9 @@ export default function DashboardPage() {
       {/* Recent attempts */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent attempts</CardTitle>
+          <CardTitle className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+            Recent attempts
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {attemptsQ.isLoading ? (
@@ -112,15 +137,19 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : attempts.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <p className="text-sm text-muted">No attempts yet. Generate your first mock test to begin.</p>
-              <GenerateTestButton />
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <p className="max-w-sm text-sm text-muted">
+                No attempts yet. Generate your first mock test to find out where you stand.
+              </p>
+              <GenerateTestButton className="bg-coral text-coral-foreground hover:bg-coral/90" />
             </div>
           ) : (
             <ul className="divide-y divide-line">
               {attempts.slice(0, 6).map((a, i) => (
                 <li key={a.id} className="flex items-center gap-4 py-3">
-                  <span className="font-mono text-sm text-muted">#{attempts.length - i}</span>
+                  <span className="font-mono text-sm text-muted tabular-nums">
+                    #{String(attempts.length - i).padStart(2, "0")}
+                  </span>
                   <span className="text-sm">{fmtDate(a.createdAt)}</span>
                   {a.status === "graded" ? (
                     <Badge variant="success">Overall {fmtBand(a.overallBand)}</Badge>
@@ -129,11 +158,17 @@ export default function DashboardPage() {
                   )}
                   <div className="ml-auto flex gap-2">
                     {a.status === "graded" ? (
-                      <Link href={`/results/${a.id}`} className="text-sm text-accent hover:underline">
+                      <Link
+                        href={`/results/${a.id}`}
+                        className="text-sm font-medium text-accent hover:underline"
+                      >
                         View results
                       </Link>
                     ) : (
-                      <Link href={`/test/${a.id}`} className="text-sm text-accent hover:underline">
+                      <Link
+                        href={`/test/${a.id}`}
+                        className="text-sm font-medium text-accent hover:underline"
+                      >
                         Resume
                       </Link>
                     )}
@@ -153,22 +188,35 @@ function StatCard({
   label,
   value,
   sub,
+  accent = "ink",
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   sub: string;
+  accent?: "ink" | "teal" | "coral";
 }) {
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-1 p-5">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-          {icon}
-          {label}
-        </div>
-        <div className="font-mono text-3xl font-bold tabular-nums">{value}</div>
-        <div className="text-xs text-muted">{sub}</div>
-      </CardContent>
-    </Card>
+    <div className="relative overflow-hidden rounded-xl border border-line bg-surface p-5 shadow-sm">
+      <span
+        className={cn(
+          "absolute inset-y-0 left-0 w-1",
+          accent === "coral" ? "bg-coral" : accent === "teal" ? "bg-accent" : "bg-transparent",
+        )}
+      />
+      <div className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+        {icon}
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-3 font-mono text-3xl font-bold tabular-nums",
+          accent === "coral" ? "text-coral" : "text-ink",
+        )}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-xs text-muted">{sub}</div>
+    </div>
   );
 }
