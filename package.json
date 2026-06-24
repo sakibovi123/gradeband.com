@@ -1,0 +1,28 @@
+{
+  "name": "ielts-mock-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "IELTS Academic mock-test platform — Next.js frontend (:3099) + Express backend (:4099)",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"WEB,API\" -c \"cyan,magenta\" \"npm:dev:web\" \"npm:dev:api\"",
+    "dev:web": "npm run dev --workspace frontend",
+    "dev:api": "npm run dev --workspace backend",
+    "build": "npm run build --workspace backend && npm run build --workspace frontend",
+    "start": "concurrently -n \"WEB,API\" -c \"cyan,magenta\" \"npm:start:web\" \"npm:start:api\"",
+    "start:web": "npm run start --workspace frontend",
+    "start:api": "npm run start --workspace backend",
+    "db:generate": "npm run db:generate --workspace backend",
+    "db:migrate": "npm run db:migrate --workspace backend",
+    "test": "npm run test --workspace backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

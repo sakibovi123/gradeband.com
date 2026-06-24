@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Semantic theme tokens — "exam paper meets modern app".
+  Components read these via Tailwind (bg-bg, text-ink, border-line, ...).
+  One confident accent, used like an examiner's pen. Everything else quiet.
+*/
+@layer base {
+  :root {
+    --bg: 40 33% 98%;          /* warm paper white */
+    --surface: 0 0% 100%;
+    --ink: 222 30% 14%;        /* near-black text */
+    --muted: 222 12% 45%;
+    --accent: 221 83% 53%;     /* the pen */
+    --accent-foreground: 0 0% 100%;
+    --success: 152 56% 38%;
+    --destructive: 0 72% 51%;
+    --line: 222 14% 89%;       /* hairline borders */
+    --radius: 0.625rem;
+
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+  }
+
+  .dark {
+    --bg: 222 28% 9%;
+    --surface: 222 24% 13%;
+    --ink: 40 20% 94%;
+    --muted: 222 12% 62%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 222 47% 11%;
+    --success: 152 50% 50%;
+    --destructive: 0 63% 55%;
+    --line: 222 16% 22%;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  body {
+    @apply bg-bg text-ink antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Respect reduced-motion preference globally. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Visible keyboard focus everywhere. */
+@layer base {
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg;
+  }
+}
+
+/* Exam-style text highlight (reading passage). */
+mark.exam-highlight {
+  background: hsl(var(--accent) / 0.28);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: pointer;
+}
+
+/* Selection colour echoes the accent "pen". */
+::selection {
+  background: hsl(var(--accent) / 0.25);
+}

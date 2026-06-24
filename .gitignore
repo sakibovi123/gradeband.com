@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# env
+.env
+.env.local
+.env*.local
+!.env.example
+
+# next.js
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# build
+backend/dist/
+*.tsbuildinfo
+
+# prisma
+backend/prisma/*.db
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+.vercel
+
+# cache / generated audio
+backend/.cache/
+.turbo/
+
+# testing
+coverage/
+playwright-report/
+test-results/
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json

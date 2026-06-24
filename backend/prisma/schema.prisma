@@ -1,0 +1,65 @@
+// Prisma schema for the IELTS mock-test platform.
+// Auth identities live in Supabase's auth.users (managed by Supabase).
+// These app tables live in the public schema and are accessed by the backend
+// through the Supabase pooler. RLS is enabled as defense-in-depth (milestone 2),
+// but the backend connects with a privileged role, so every query MUST be
+// scoped to the authenticated user id in code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // pooled (Supavisor :6543) for runtime
+  directUrl = env("DIRECT_URL")    // direct (:5432) for migrations
+}
+
+/// App-side profile, keyed by the Supabase auth user id (uuid).
+/// A row is created automatically by a Postgres trigger on auth.users insert.
+model Profile {
+  id         String    @id @db.Uuid // == auth.users.id
+  email      String?   @unique
+  name       String?
+  examDate   DateTime?
+  targetBand Float     @default(7.0)
+  theme      String    @default("system") // light | dark | system
+  model      String    @default("anthropic/claude-3.5-sonnet")
+  attempts   Attempt[]
+  createdAt  DateTime  @default(now())
+
+  @@map("profiles")
+}
+
+/// A generated test instance.
+model MockTest {
+  id        String    @id @default(cuid())
+  listening Json // { title, transcript, audioUrl, questions[] }
+  reading   Json // { title, passage, questions[] }
+  writing   Json // { task1?, task2 } prompts
+  createdAt DateTime  @default(now())
+  attempts  Attempt[]
+
+  @@map("mock_tests")
+}
+
+model Attempt {
+  id            String   @id @default(cuid())
+  userId        String   @db.Uuid
+  mockTestId    String
+  user          Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mockTest      MockTest @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
+  answers       Json // { listening:{}, reading:{}, writingText }
+  listeningBand Float?
+  readingBand   Float?
+  writingBand   Float?
+  overallBand   Float?
+  writingDetail Json? // criteria + strengths + improvements
+  focusPlan     Json? // [{ area, why, action }]
+  status        String   @default("in_progress") // in_progress | graded
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([mockTestId])
+  @@map("attempts")
+}
