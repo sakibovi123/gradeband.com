@@ -19,6 +19,8 @@ export const badRequest = (msg: string, details?: unknown) =>
   new ApiError(400, msg, { expose: true, details });
 export const unauthorized = (msg = "Authentication required") =>
   new ApiError(401, msg, { expose: true });
+export const paymentRequired = (msg = "Insufficient credits", details?: unknown) =>
+  new ApiError(402, msg, { expose: true, details });
 export const forbidden = (msg = "Forbidden") => new ApiError(403, msg, { expose: true });
 export const notFound = (msg = "Not found") => new ApiError(404, msg, { expose: true });
 

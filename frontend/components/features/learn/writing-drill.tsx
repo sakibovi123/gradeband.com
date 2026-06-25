@@ -1,10 +1,13 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 import type { Drill } from "@/lib/learn/content";
 import type { WritingGrade, WritingVisual as WV } from "@/lib/types";
 import { useApi } from "@/hooks/use-api";
+import { ApiClientError } from "@/lib/api";
 import { wordCount } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,14 +28,17 @@ function visualToText(v: WV): string {
 
 export function WritingDrill({ drill }: { drill: WritingDrill }) {
   const { call } = useApi();
+  const queryClient = useQueryClient();
   const [text, setText] = React.useState("");
   const [grade, setGrade] = React.useState<WritingGrade | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [needsTopUp, setNeedsTopUp] = React.useState(false);
 
   const [model, setModel] = React.useState<string | null>(null);
   const [modelLoading, setModelLoading] = React.useState(false);
   const [modelError, setModelError] = React.useState<string | null>(null);
+  const [modelNeedsTopUp, setModelNeedsTopUp] = React.useState(false);
 
   const minWords = drill.task === "task1" ? 150 : 250;
   const count = wordCount(text);
@@ -44,13 +50,16 @@ export function WritingDrill({ drill }: { drill: WritingDrill }) {
   async function grateIt() {
     setLoading(true);
     setError(null);
+    setNeedsTopUp(false);
     try {
       const r = await call<{ grade: WritingGrade }>("/api/learn/grade", {
         method: "POST",
         body: JSON.stringify({ task: drill.task, prompt: gradePrompt, text }),
       });
       setGrade(r.grade);
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
     } catch (err) {
+      if (err instanceof ApiClientError && err.status === 402) setNeedsTopUp(true);
       setError(err instanceof Error ? err.message : "Couldn't grade your response. Please try again.");
     } finally {
       setLoading(false);
@@ -61,18 +70,30 @@ export function WritingDrill({ drill }: { drill: WritingDrill }) {
     if (model || modelLoading) return;
     setModelLoading(true);
     setModelError(null);
+    setModelNeedsTopUp(false);
     try {
       const r = await call<{ answer: string }>("/api/learn/model", {
         method: "POST",
         body: JSON.stringify({ task: drill.task, prompt: gradePrompt }),
       });
       setModel(r.answer);
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
     } catch (err) {
+      if (err instanceof ApiClientError && err.status === 402) setModelNeedsTopUp(true);
       setModelError(err instanceof Error ? err.message : "Couldn't load a model answer. Please try again.");
     } finally {
       setModelLoading(false);
     }
   }
+
+  const topUpLink = (
+    <>
+      {" "}
+      <Link href="/wallet" className="font-medium underline">
+        Top up your wallet
+      </Link>
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -119,6 +140,7 @@ export function WritingDrill({ drill }: { drill: WritingDrill }) {
       {error && (
         <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
+          {needsTopUp && topUpLink}
         </p>
       )}
 
@@ -198,6 +220,7 @@ export function WritingDrill({ drill }: { drill: WritingDrill }) {
         {modelError && (
           <p role="alert" className="px-4 pb-3 text-sm text-destructive">
             {modelError}
+            {modelNeedsTopUp && topUpLink}
           </p>
         )}
       </div>

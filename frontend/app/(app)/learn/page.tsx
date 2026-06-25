@@ -6,6 +6,7 @@ import { BookOpen, PenLine, GraduationCap, Sparkles, Clock, ArrowRight, Check } 
 import { useApi } from "@/hooks/use-api";
 import { LESSONS, TRACK_LABEL, type Lesson, type Track } from "@/lib/learn/content";
 import { useLessonProgress } from "@/lib/learn/progress";
+import { GenerateMore } from "@/components/features/learn/generate-more";
 import { cn } from "@/lib/utils";
 import type { Attempt } from "@/lib/types";
 
@@ -94,6 +95,9 @@ export default function LearnHub() {
           </section>
         );
       })}
+
+      {/* Once every lesson is done, let the learner generate fresh paid guides. */}
+      {completedCount >= LESSONS.length && <GenerateMore />}
     </div>
   );
 }

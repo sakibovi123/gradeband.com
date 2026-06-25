@@ -1,5 +1,6 @@
 import { prisma } from "../lib/db.js";
-import { notFound } from "../lib/http.js";
+import { env } from "../lib/env.js";
+import { badRequest, notFound } from "../lib/http.js";
 import { logger } from "../lib/logger.js";
 import {
   listeningSectionSchema,
@@ -92,14 +93,21 @@ export async function gradeAttempt(attemptId: string, userId: string) {
     include: { mockTest: true, user: true },
   });
   if (!attempt) throw notFound("Attempt not found");
+  // Grading runs LLM calls (paid for upfront at generation). Block re-grading an
+  // already-graded attempt so an empty-body re-submit can't burn spend for free
+  // or overwrite the saved result. The /submit route's own guard only covers the
+  // with-answers path; this protects every caller.
+  if (attempt.status === "graded") throw badRequest("This attempt is already submitted.");
 
   const answers = (attempt.answers ?? {}) as AnswersPayload;
   const sections = parseSections(attempt.mockTest);
 
   // --- Objective sections (deterministic) ---
   let listeningBand: number | null = null;
+  let listeningRaw: { correct: number; total: number } | null = null;
   if (sections.listening && sections.listening.questions.length > 0) {
     const res = gradeObjective(sections.listening.questions, answers.listening ?? {});
+    listeningRaw = { correct: res.correct, total: res.total };
     listeningBand = rawToBand(res.correct, res.total, "listening");
   }
 
@@ -111,16 +119,12 @@ export async function gradeAttempt(attemptId: string, userId: string) {
     readingBand = rawToBand(res.correct, res.total, "reading");
   }
 
-  let listeningRaw: { correct: number; total: number } | null = null;
-  if (sections.listening && sections.listening.questions.length > 0) {
-    const res = gradeObjective(sections.listening.questions, answers.listening ?? {});
-    listeningRaw = { correct: res.correct, total: res.total };
-  }
-
   // --- Writing (LLM) ---
   let writingBand: number | null = null;
   let writingDetail: Record<string, unknown> | null = null;
-  const model = attempt.user.model;
+  // Grading is part of the upfront-charged action, so it must use the same fixed
+  // paid model the price was calibrated to — not the user's display model.
+  const model = env.PAID_MODEL;
   const writing = sections.writing;
   const task1Text = answers.writing?.task1?.trim();
   const task2Text = answers.writing?.task2?.trim();

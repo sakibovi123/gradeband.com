@@ -21,6 +21,11 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(4099),
   WEB_ORIGIN: z.string().url().default("http://localhost:3099"),
+  // Public base URLs, shared with the frontend. The app URL is the canonical
+  // origin for user-facing links (e.g. payment redirects); the API URL is this
+  // backend's own public origin (e.g. the payment webhook target).
+  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3099"),
+  NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:4099"),
 
   // Supabase
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
@@ -35,6 +40,15 @@ const schema = z.object({
   // OpenRouter
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4.6"),
+  // The single model used for all *billable* generation/grading. Credit prices
+  // are calibrated to this model, so paid actions must not use a per-user model.
+  PAID_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4.6"),
+
+  // UddoktaPay (pay-as-you-go credit top-ups; bKash personal configured in panel)
+  UDDOKTAPAY_BASE_URL: z.string().url().default("https://sandbox.uddoktapay.com"),
+  UDDOKTAPAY_API_KEY: z.string().min(1).optional(),
+  // Credits granted to a brand-new wallet so users can try before buying.
+  WELCOME_CREDITS: z.coerce.number().int().min(0).default(20),
 
   // OpenAI TTS
   OPENAI_API_KEY: z.string().min(1).optional(),
@@ -73,6 +87,8 @@ export const requireEnv = {
     require("SUPABASE_JWT_SECRET", "Used to verify incoming Supabase access tokens."),
   openRouterKey: () => require("OPENROUTER_API_KEY", "Get one at https://openrouter.ai/keys"),
   openAiKey: () => require("OPENAI_API_KEY", "Used for text-to-speech audio generation."),
+  uddoktapayKey: () =>
+    require("UDDOKTAPAY_API_KEY", "UddoktaPay API key (RT-UDDOKTAPAY-API-KEY) from your panel."),
 };
 
 export const isProd = env.NODE_ENV === "production";

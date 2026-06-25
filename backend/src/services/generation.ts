@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { chatJson } from "../lib/openrouter.js";
 import { logger } from "../lib/logger.js";
 import { prisma } from "../lib/db.js";
@@ -6,10 +7,12 @@ import {
   llmListeningSchema,
   llmReadingSchema,
   llmWritingSchema,
+  questionTypeSchema,
   type LlmQuestion,
   type ListeningSection,
   type ReadingSection,
   type WritingSection,
+  type WritingVisual,
   type Question,
 } from "../schemas/test.js";
 import { synthesizeListeningAudio } from "./tts.js";
@@ -154,6 +157,80 @@ export async function generateMockTest(model?: string): Promise<string> {
 
   logger.info("Mock test created", { id: test.id });
   return test.id;
+}
+
+// --- Learn guides ---------------------------------------------------------
+//
+// On-demand, self-contained practice items for the Learn section, shaped to the
+// frontend's `Drill` type so the existing ReadingDrill / WritingDrill renderers
+// can display them. A reading guide is a short passage with self-marking
+// questions that each carry an explanation; a writing guide is a single task
+// prompt (Task 1 with a figure, or Task 2).
+
+const llmReadingGuideSchema = z.object({
+  instructions: z.string().min(1),
+  passage: z.string().min(1),
+  questions: z
+    .array(
+      z.object({
+        type: questionTypeSchema,
+        q: z.string().min(1),
+        options: z.array(z.string().min(1)).optional(),
+        answer: z.string().min(1),
+        explanation: z.string().min(1),
+      }),
+    )
+    .min(5)
+    .max(8),
+});
+
+export interface ReadingGuide {
+  kind: "reading";
+  instructions: string;
+  passage: string;
+  questions: {
+    type: LlmQuestion["type"];
+    q: string;
+    options?: string[];
+    answer: string;
+    explanation: string;
+  }[];
+}
+
+export interface WritingGuide {
+  kind: "writing";
+  task: "task1" | "task2";
+  prompt: string;
+  visual?: WritingVisual;
+}
+
+/** Generate a fresh, self-marking reading guide for the Learn section. */
+export async function generateReadingGuide(model?: string): Promise<ReadingGuide> {
+  const topic = pick(READING_TOPICS);
+  const data = await chatJson({
+    label: "learn-reading-guide",
+    model,
+    schema: llmReadingGuideSchema,
+    system:
+      "You are an IELTS Academic Reading item writer and tutor. You produce realistic passages, accurate keys, and short teaching explanations. Output JSON only.",
+    user: `Write a SHORT IELTS Academic Reading practice guide about ${topic}.
+- "passage": 300-450 words, academic register.
+- "instructions": one line telling the learner what to do.
+- "questions": exactly 6 questions mixing tfng, mcq, and gap. Every "answer" must be verifiable strictly from the passage.
+- Each question also has an "explanation": one sentence pointing to the evidence in the passage that justifies the answer (this is a learning aid).
+${QUESTION_RULES}`,
+  });
+  return { kind: "reading", instructions: data.instructions, passage: data.passage, questions: data.questions };
+}
+
+/** Generate a fresh writing guide (one task) for the Learn section. */
+export async function generateWritingGuide(model?: string): Promise<WritingGuide> {
+  const writing = await generateWriting(model);
+  // Half the time give a Task 1 (with its figure), otherwise a Task 2 essay.
+  if (Math.random() < 0.5 && writing.task1?.prompt) {
+    return { kind: "writing", task: "task1", prompt: writing.task1.prompt, visual: writing.task1.visual };
+  }
+  return { kind: "writing", task: "task2", prompt: writing.task2.prompt };
 }
 
 /** Generate a single section for practice-mode drilling. */

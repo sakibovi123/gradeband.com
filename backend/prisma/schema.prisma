@@ -25,10 +25,61 @@ model Profile {
   targetBand Float     @default(7.0)
   theme      String    @default("system") // light | dark | system
   model      String    @default("anthropic/claude-sonnet-4.6")
+  // Pay-as-you-go wallet. Denominated in credits (1 credit == 1 BDT by default).
+  // `credits` is the fast-read balance; CreditTransaction is the source-of-truth ledger.
+  // Both are written together inside a transaction so they never diverge.
+  credits    Int       @default(0)
   attempts   Attempt[]
+  transactions CreditTransaction[]
+  payments     Payment[]
   createdAt  DateTime  @default(now())
 
   @@map("profiles")
+}
+
+/// Append-only wallet ledger. Every balance change writes one row.
+/// `amount` is signed: positive = top-up/refund, negative = spend.
+/// `balanceAfter` snapshots the wallet after this entry for audit/reconciliation.
+model CreditTransaction {
+  id           String   @id @default(cuid())
+  userId       String   @db.Uuid
+  user         Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount       Int // signed credits
+  balanceAfter Int
+  type         String // purchase | spend | refund | welcome | adjustment
+  reason       String // e.g. "practice:writing", "mock", "learn:grade", "topup"
+  // Idempotency + traceability. A purchase carries the UddoktaPay invoice id
+  // (unique so a webhook + redirect can't double-credit). A spend/refund may
+  // carry the attempt it relates to.
+  invoiceId    String?  @unique
+  attemptId    String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@map("credit_transactions")
+}
+
+/// A UddoktaPay top-up. Created PENDING when the charge is initiated, flipped to
+/// COMPLETED once verify-payment confirms it (via webhook or redirect). The
+/// wallet is only credited on the PENDING -> COMPLETED transition, exactly once.
+model Payment {
+  id            String   @id @default(cuid())
+  userId        String   @db.Uuid
+  user          Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceId     String   @unique // UddoktaPay invoice_id
+  amountBdt     Int // amount charged, in BDT
+  credits       Int // credits to grant on completion
+  status        String   @default("PENDING") // PENDING | COMPLETED | ERROR
+  paymentMethod String? // e.g. "bkash"
+  senderNumber  String?
+  transactionId String?
+  raw           Json? // last verify/webhook payload, for support/debugging
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@map("payments")
 }
 
 /// A generated test instance.

@@ -44,3 +44,4 @@ test-results/
 # backups (never commit env backups)
 *.bak
 .env.bak*
+sandbox/
