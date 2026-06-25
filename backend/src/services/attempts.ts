@@ -1,6 +1,6 @@
 import { prisma } from "../lib/db.js";
 import { env } from "../lib/env.js";
-import { notFound } from "../lib/http.js";
+import { badRequest, notFound } from "../lib/http.js";
 import { logger } from "../lib/logger.js";
 import {
   listeningSectionSchema,
@@ -93,14 +93,21 @@ export async function gradeAttempt(attemptId: string, userId: string) {
     include: { mockTest: true, user: true },
   });
   if (!attempt) throw notFound("Attempt not found");
+  // Grading runs LLM calls (paid for upfront at generation). Block re-grading an
+  // already-graded attempt so an empty-body re-submit can't burn spend for free
+  // or overwrite the saved result. The /submit route's own guard only covers the
+  // with-answers path; this protects every caller.
+  if (attempt.status === "graded") throw badRequest("This attempt is already submitted.");
 
   const answers = (attempt.answers ?? {}) as AnswersPayload;
   const sections = parseSections(attempt.mockTest);
 
   // --- Objective sections (deterministic) ---
   let listeningBand: number | null = null;
+  let listeningRaw: { correct: number; total: number } | null = null;
   if (sections.listening && sections.listening.questions.length > 0) {
     const res = gradeObjective(sections.listening.questions, answers.listening ?? {});
+    listeningRaw = { correct: res.correct, total: res.total };
     listeningBand = rawToBand(res.correct, res.total, "listening");
   }
 
@@ -110,12 +117,6 @@ export async function gradeAttempt(attemptId: string, userId: string) {
     const res = gradeObjective(sections.reading.questions, answers.reading ?? {});
     readingRaw = { correct: res.correct, total: res.total };
     readingBand = rawToBand(res.correct, res.total, "reading");
-  }
-
-  let listeningRaw: { correct: number; total: number } | null = null;
-  if (sections.listening && sections.listening.questions.length > 0) {
-    const res = gradeObjective(sections.listening.questions, answers.listening ?? {});
-    listeningRaw = { correct: res.correct, total: res.total };
   }
 
   // --- Writing (LLM) ---

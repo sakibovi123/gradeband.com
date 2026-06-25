@@ -31,17 +31,20 @@ testsRouter.post(
     // generation always uses the fixed paid model so cost matches the price.
     const balance = await charge(req.user.id, MOCK_PRICE, { reason: "mock" });
 
+    // Refund if anything between charge and a usable attempt fails — generation
+    // OR the persistence that turns it into something the user can open.
     let testId: string;
+    let attemptId: string;
     try {
       testId = await generateMockTest(env.PAID_MODEL);
+      const attempt = await prisma.attempt.create({
+        data: { userId: req.user.id, mockTestId: testId, answers: {} },
+      });
+      attemptId = attempt.id;
     } catch (err) {
       await refund(req.user.id, MOCK_PRICE, { reason: "mock:refund" }).catch(() => {});
       throw err;
     }
-
-    const attempt = await prisma.attempt.create({
-      data: { userId: req.user.id, mockTestId: testId, answers: {} },
-    });
-    res.status(201).json({ testId, attemptId: attempt.id, charged: MOCK_PRICE, balance });
+    res.status(201).json({ testId, attemptId, charged: MOCK_PRICE, balance });
   }),
 );

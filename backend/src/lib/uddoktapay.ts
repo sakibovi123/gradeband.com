@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { env, requireEnv } from "./env.js";
 import { logger } from "./logger.js";
 import { ApiError } from "./http.js";
@@ -133,5 +134,9 @@ export async function verifyPayment(invoiceId: string): Promise<UddoktaPayment> 
  */
 export function isValidWebhookKey(headerValue: string | undefined): boolean {
   if (!headerValue) return false;
-  return headerValue === requireEnv.uddoktapayKey();
+  // Constant-time comparison so the secret can't be recovered by timing the
+  // response. timingSafeEqual requires equal-length buffers, so length-check first.
+  const a = Buffer.from(headerValue);
+  const b = Buffer.from(requireEnv.uddoktapayKey());
+  return a.length === b.length && timingSafeEqual(a, b);
 }

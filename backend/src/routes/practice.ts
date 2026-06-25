@@ -36,33 +36,37 @@ practiceRouter.post(
     const price = practicePrice(section);
     const balance = await charge(req.user.id, price, { reason: `practice:${section}` });
 
-    let generated;
+    // Refund if generation OR the subsequent persistence fails — otherwise the
+    // user is charged with no usable attempt to show for it.
+    let testId: string;
+    let attemptId: string;
     try {
-      generated = await generateSingleSection(section, env.PAID_MODEL);
+      const generated = await generateSingleSection(section, env.PAID_MODEL);
+
+      let listening: ListeningSection = emptyListening;
+      let reading: ReadingSection = emptyReading;
+      let writing: WritingSection = emptyWriting;
+      if (section === "listening") listening = generated as ListeningSection;
+      else if (section === "reading") reading = generated as ReadingSection;
+      else writing = generated as WritingSection;
+
+      const test = await prisma.mockTest.create({
+        data: {
+          listening: listening as object,
+          reading: reading as object,
+          writing: writing as object,
+        },
+      });
+      const attempt = await prisma.attempt.create({
+        data: { userId: req.user.id, mockTestId: test.id, answers: {} },
+      });
+      testId = test.id;
+      attemptId = attempt.id;
     } catch (err) {
-      // Generation failed after charging — refund so the user isn't billed.
       await refund(req.user.id, price, { reason: `practice:${section}:refund` }).catch(() => {});
       throw err;
     }
 
-    let listening: ListeningSection = emptyListening;
-    let reading: ReadingSection = emptyReading;
-    let writing: WritingSection = emptyWriting;
-    if (section === "listening") listening = generated as ListeningSection;
-    else if (section === "reading") reading = generated as ReadingSection;
-    else writing = generated as WritingSection;
-
-    const test = await prisma.mockTest.create({
-      data: {
-        listening: listening as object,
-        reading: reading as object,
-        writing: writing as object,
-      },
-    });
-    const attempt = await prisma.attempt.create({
-      data: { userId: req.user.id, mockTestId: test.id, answers: {} },
-    });
-
-    res.status(201).json({ testId: test.id, attemptId: attempt.id, section, charged: price, balance });
+    res.status(201).json({ testId, attemptId, section, charged: price, balance });
   }),
 );

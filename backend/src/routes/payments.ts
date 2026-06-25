@@ -77,10 +77,10 @@ async function finalizeInvoice(
 ): Promise<{ status: string; credits?: number; balance?: number }> {
   const payment = await verifyPayment(invoiceId);
   const userId = payment.metadata?.userId;
-  const credits = Number(payment.metadata?.credits);
+  const packageId = payment.metadata?.packageId;
 
-  if (!userId || !Number.isFinite(credits) || credits <= 0) {
-    logger.warn("Payment missing/invalid metadata", { invoiceId });
+  if (!userId || !packageId) {
+    logger.warn("Payment missing required metadata", { invoiceId });
     throw badRequest("This payment is missing required information.");
   }
   if (expectedUserId && expectedUserId !== userId) {
@@ -96,18 +96,38 @@ async function finalizeInvoice(
   };
 
   if (payment.status === "COMPLETED") {
-    const balance = await grant(userId, credits, {
+    // Reconcile against the package: the credits granted come from the package
+    // definition (server-side truth), never from the round-tripped metadata, and
+    // only if the amount actually paid covers the package price. This enforces
+    // the paid-amount ↔ credits invariant even if a COMPLETED invoice comes back
+    // under-paid or with tampered/stale metadata.
+    const pkg = findPackage(packageId);
+    if (!pkg || amountBdt < pkg.amountBdt) {
+      logger.error("Payment amount/package mismatch — not crediting", {
+        invoiceId,
+        packageId,
+        amountBdt,
+        expected: pkg?.amountBdt,
+      });
+      await prisma.payment.upsert({
+        where: { invoiceId },
+        create: { userId, invoiceId, amountBdt, credits: pkg?.credits ?? 0, status: "ERROR", ...common },
+        update: { status: "ERROR", ...common },
+      });
+      return { status: "ERROR" };
+    }
+    const balance = await grant(userId, pkg.credits, {
       reason: "topup",
       idempotencyKey: invoiceId,
       type: "purchase",
-      metadata: { invoiceId, amountBdt },
+      metadata: { invoiceId, amountBdt, packageId },
     });
     await prisma.payment.upsert({
       where: { invoiceId },
-      create: { userId, invoiceId, amountBdt, credits, status: "COMPLETED", ...common },
+      create: { userId, invoiceId, amountBdt, credits: pkg.credits, status: "COMPLETED", ...common },
       update: { status: "COMPLETED", ...common },
     });
-    return { status: "COMPLETED", credits, balance };
+    return { status: "COMPLETED", credits: pkg.credits, balance };
   }
 
   // PENDING / ERROR — record it, but don't credit.
@@ -117,7 +137,7 @@ async function finalizeInvoice(
       userId,
       invoiceId,
       amountBdt,
-      credits,
+      credits: findPackage(packageId)?.credits ?? 0,
       status: payment.status ?? "PENDING",
       ...common,
     },
@@ -134,6 +154,8 @@ async function finalizeInvoice(
  */
 paymentsRouter.post(
   "/webhook",
+  // Bound unauthenticated load even though the key check rejects forgeries cheaply.
+  rateLimit({ windowMs: 60 * 1000, max: 60, key: "payment-webhook" }),
   asyncHandler(async (req, res) => {
     if (!isValidWebhookKey(req.header("RT-UDDOKTAPAY-API-KEY") ?? undefined)) {
       logger.warn("Rejected webhook with bad API key");
