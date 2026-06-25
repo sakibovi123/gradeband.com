@@ -1,4 +1,5 @@
 import { prisma } from "../lib/db.js";
+import { env } from "../lib/env.js";
 import { notFound } from "../lib/http.js";
 import { logger } from "../lib/logger.js";
 import {
@@ -120,7 +121,9 @@ export async function gradeAttempt(attemptId: string, userId: string) {
   // --- Writing (LLM) ---
   let writingBand: number | null = null;
   let writingDetail: Record<string, unknown> | null = null;
-  const model = attempt.user.model;
+  // Grading is part of the upfront-charged action, so it must use the same fixed
+  // paid model the price was calibrated to — not the user's display model.
+  const model = env.PAID_MODEL;
   const writing = sections.writing;
   const task1Text = answers.writing?.task1?.trim();
   const task2Text = answers.writing?.task2?.trim();

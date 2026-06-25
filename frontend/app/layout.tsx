@@ -1,24 +1,27 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, Space_Mono } from "next/font/google";
+import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const fraunces = Fraunces({
+// Display: Space Grotesk (geometric, modern headings + brand).
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-fraunces",
+  variable: "--font-space-grotesk",
   display: "swap",
 });
+// Body: Inter.
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-inter",
   display: "swap",
 });
-const spaceMono = Space_Mono({
+// Mono: JetBrains Mono (the small uppercase labels / numerics).
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-space-mono",
+  weight: ["400", "500", "700"],
+  variable: "--font-jetbrains-mono",
   display: "swap",
 });
 
@@ -33,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${fraunces.variable} ${inter.variable} ${spaceMono.variable}`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         <Providers>{children}</Providers>

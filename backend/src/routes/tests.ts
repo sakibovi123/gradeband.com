@@ -1,9 +1,12 @@
 import { Router } from "express";
 import { prisma } from "../lib/db.js";
+import { env } from "../lib/env.js";
 import { asyncHandler } from "../lib/http.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { generateTestSchema } from "../schemas/api.js";
+import { MOCK_PRICE } from "../lib/pricing.js";
+import { charge, refund } from "../services/wallet.js";
 import { generateMockTest } from "../services/generation.js";
 
 export const testsRouter = Router();
@@ -22,17 +25,23 @@ testsRouter.post(
   "/generate",
   rateLimit({ windowMs: 60 * 60 * 1000, max: 20, key: "generate" }),
   asyncHandler(async (req: AuthedRequest, res) => {
-    const { model } = generateTestSchema.parse(req.body ?? {});
-    const chosenModel = model ?? (await getUserModel(req.user.id));
-    const testId = await generateMockTest(chosenModel);
+    generateTestSchema.parse(req.body ?? {});
+
+    // Charge the mock price upfront (covers generation + grading). Billable
+    // generation always uses the fixed paid model so cost matches the price.
+    const balance = await charge(req.user.id, MOCK_PRICE, { reason: "mock" });
+
+    let testId: string;
+    try {
+      testId = await generateMockTest(env.PAID_MODEL);
+    } catch (err) {
+      await refund(req.user.id, MOCK_PRICE, { reason: "mock:refund" }).catch(() => {});
+      throw err;
+    }
+
     const attempt = await prisma.attempt.create({
       data: { userId: req.user.id, mockTestId: testId, answers: {} },
     });
-    res.status(201).json({ testId, attemptId: attempt.id });
+    res.status(201).json({ testId, attemptId: attempt.id, charged: MOCK_PRICE, balance });
   }),
 );
-
-async function getUserModel(userId: string) {
-  const profile = await prisma.profile.findUnique({ where: { id: userId } });
-  return profile?.model;
-}

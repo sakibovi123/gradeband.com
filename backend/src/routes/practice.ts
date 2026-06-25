@@ -1,9 +1,12 @@
 import { Router } from "express";
 import { prisma } from "../lib/db.js";
+import { env } from "../lib/env.js";
 import { asyncHandler } from "../lib/http.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { generatePracticeSchema } from "../schemas/api.js";
+import { practicePrice } from "../lib/pricing.js";
+import { charge, refund } from "../services/wallet.js";
 import { generateSingleSection } from "../services/generation.js";
 import {
   emptyListening,
@@ -25,11 +28,22 @@ practiceRouter.post(
   "/generate",
   rateLimit({ windowMs: 60 * 60 * 1000, max: 30, key: "practice" }),
   asyncHandler(async (req: AuthedRequest, res) => {
-    const { section, model } = generatePracticeSchema.parse(req.body ?? {});
-    const profile = await prisma.profile.findUnique({ where: { id: req.user.id } });
-    const chosenModel = model ?? profile?.model;
+    const { section } = generatePracticeSchema.parse(req.body ?? {});
 
-    const generated = await generateSingleSection(section, chosenModel);
+    // Pay-as-you-go: charge the section price upfront (covers generation +
+    // grading). Billable actions always use the fixed paid model so the cost
+    // matches the price — the per-user model choice does not apply here.
+    const price = practicePrice(section);
+    const balance = await charge(req.user.id, price, { reason: `practice:${section}` });
+
+    let generated;
+    try {
+      generated = await generateSingleSection(section, env.PAID_MODEL);
+    } catch (err) {
+      // Generation failed after charging — refund so the user isn't billed.
+      await refund(req.user.id, price, { reason: `practice:${section}:refund` }).catch(() => {});
+      throw err;
+    }
 
     let listening: ListeningSection = emptyListening;
     let reading: ReadingSection = emptyReading;
@@ -49,6 +63,6 @@ practiceRouter.post(
       data: { userId: req.user.id, mockTestId: test.id, answers: {} },
     });
 
-    res.status(201).json({ testId: test.id, attemptId: attempt.id, section });
+    res.status(201).json({ testId: test.id, attemptId: attempt.id, section, charged: price, balance });
   }),
 );

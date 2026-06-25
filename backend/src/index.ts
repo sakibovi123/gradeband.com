@@ -11,6 +11,8 @@ import { meRouter } from "./routes/me.js";
 import { ttsRouter } from "./routes/tts.js";
 import { practiceRouter } from "./routes/practice.js";
 import { learnRouter } from "./routes/learn.js";
+import { walletRouter } from "./routes/wallet.js";
+import { paymentsRouter } from "./routes/payments.js";
 import { audioCacheDir } from "./services/tts.js";
 
 const app = express();
@@ -58,6 +60,8 @@ app.use("/api/me", meRouter);
 app.use("/api/tts", ttsRouter);
 app.use("/api/practice", practiceRouter);
 app.use("/api/learn", learnRouter);
+app.use("/api/wallet", walletRouter);
+app.use("/api/payments", paymentsRouter);
 
 // 404 + error handling (must be last).
 app.use((_req, _res, next) => next(notFound("Route not found")));

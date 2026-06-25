@@ -50,6 +50,21 @@ export const learnModelSchema = z.object({
   prompt: z.string().min(1).max(4000),
 });
 
+/** Generate a fresh Learn practice guide of the given kind. */
+export const learnGenerateSchema = z.object({
+  kind: z.enum(["reading", "writing"]),
+});
+
 export const ttsSchema = z.object({
   transcript: z.string().min(1).max(8000),
+});
+
+/** Start a credit top-up for a given package id. */
+export const createChargeSchema = z.object({
+  packageId: z.string().min(1),
+});
+
+/** Confirm a payment by its UddoktaPay invoice id (frontend return page). */
+export const verifyPaymentSchema = z.object({
+  invoiceId: z.string().min(1).max(200),
 });

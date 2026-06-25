@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, PencilRuler, GraduationCap, History, User, LogOut, X } from "lucide-react";
+import { LayoutDashboard, PencilRuler, GraduationCap, History, Wallet, User, LogOut, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const links = [
   { href: "/practice", label: "Practice", icon: PencilRuler },
   { href: "/learn", label: "Learn", icon: GraduationCap },
   { href: "/history", label: "History", icon: History },
+  { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/profile", label: "Profile", icon: User },
 ] as const;
 

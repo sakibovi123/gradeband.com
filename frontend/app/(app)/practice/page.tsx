@@ -1,9 +1,12 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Headphones, BookOpen, PenLine, Mic, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Headphones, BookOpen, PenLine, Mic, Loader2, Coins } from "lucide-react";
 import { useApi } from "@/hooks/use-api";
+import { ApiClientError } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -46,19 +49,34 @@ const SOON_SECTIONS: { label: string; desc: string; icon: typeof Headphones }[] 
 export default function PracticePage() {
   const { call } = useApi();
   const router = useRouter();
+  const queryClient = useQueryClient();
+
+  // Live per-action prices (shared cache with the wallet badge/page).
+  const walletQ = useQuery({
+    queryKey: ["wallet"],
+    queryFn: () =>
+      call<{ prices: { practice: Record<SectionKey, number> } }>("/api/wallet"),
+  });
+  const prices = walletQ.data?.prices.practice;
+
   const [loading, setLoading] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [needsTopUp, setNeedsTopUp] = React.useState(false);
 
   async function start(section: SectionKey) {
     setLoading(section);
     setError(null);
+    setNeedsTopUp(false);
     try {
       const { attemptId } = await call<{ attemptId: string }>("/api/practice/generate", {
         method: "POST",
         body: JSON.stringify({ section }),
       });
+      // Practice spent credits — refresh the balance badge.
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
       router.push(`/test/${attemptId}`);
     } catch (err) {
+      if (err instanceof ApiClientError && err.status === 402) setNeedsTopUp(true);
       setError(err instanceof Error ? err.message : "Could not start practice. Please try again.");
       setLoading(null);
     }
@@ -76,6 +94,14 @@ export default function PracticePage() {
       {error && (
         <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
+          {needsTopUp && (
+            <>
+              {" "}
+              <Link href="/wallet" className="font-medium underline">
+                Top up your wallet
+              </Link>
+            </>
+          )}
         </p>
       )}
 
@@ -97,15 +123,23 @@ export default function PracticePage() {
             >
               <Card className="h-full">
                 <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-9 w-9 place-items-center rounded-md bg-accent/10 text-accent">
-                      {isLoading ? (
-                        <Loader2 className="size-5 animate-spin" />
-                      ) : (
-                        <Icon className="size-5" />
-                      )}
-                    </span>
-                    <CardTitle>{s.label}</CardTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="grid h-9 w-9 place-items-center rounded-md bg-accent/10 text-accent">
+                        {isLoading ? (
+                          <Loader2 className="size-5 animate-spin" />
+                        ) : (
+                          <Icon className="size-5" />
+                        )}
+                      </span>
+                      <CardTitle>{s.label}</CardTitle>
+                    </div>
+                    {prices && (
+                      <Badge variant="muted" className="gap-1">
+                        <Coins className="size-3 text-coral" />
+                        {prices[s.key]} credits
+                      </Badge>
+                    )}
                   </div>
                   <CardDescription className="pt-2">{s.desc}</CardDescription>
                 </CardHeader>

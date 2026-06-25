@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Notifications } from "@/components/features/notifications";
+import { WalletBadge } from "@/components/features/wallet-badge";
 
 /**
  * Sticky app header sitting above the content column. Holds the mobile menu
@@ -29,6 +30,7 @@ export function AppHeader({ email, onMenu }: { email: string | null; onMenu: () 
       </span>
 
       <div className="ml-auto flex items-center gap-1.5">
+        <WalletBadge />
         <ThemeToggle />
         <Notifications />
         <Link
