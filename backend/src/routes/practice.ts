@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { prisma } from "../lib/db.js";
-import { env } from "../lib/env.js";
 import { asyncHandler } from "../lib/http.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
@@ -8,6 +7,7 @@ import { generatePracticeSchema } from "../schemas/api.js";
 import { practicePrice } from "../lib/pricing.js";
 import { charge, refund } from "../services/wallet.js";
 import { generateSingleSection } from "../services/generation.js";
+import { resolveModelForUser } from "../services/tier.js";
 import {
   emptyListening,
   emptyReading,
@@ -31,8 +31,8 @@ practiceRouter.post(
     const { section } = generatePracticeSchema.parse(req.body ?? {});
 
     // Pay-as-you-go: charge the section price upfront (covers generation +
-    // grading). Billable actions always use the fixed paid model so the cost
-    // matches the price — the per-user model choice does not apply here.
+    // grading). The price is calibrated to the paid model; free-tier users pay
+    // the same trial budget but run on the free model behind the scenes.
     const price = practicePrice(section);
     const balance = await charge(req.user.id, price, { reason: `practice:${section}` });
 
@@ -41,7 +41,8 @@ practiceRouter.post(
     let testId: string;
     let attemptId: string;
     try {
-      const generated = await generateSingleSection(section, env.PAID_MODEL);
+      const model = await resolveModelForUser(req.user.id);
+      const generated = await generateSingleSection(section, model);
 
       let listening: ListeningSection = emptyListening;
       let reading: ReadingSection = emptyReading;

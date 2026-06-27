@@ -40,15 +40,21 @@ const schema = z.object({
   // OpenRouter
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4.6"),
-  // The single model used for all *billable* generation/grading. Credit prices
-  // are calibrated to this model, so paid actions must not use a per-user model.
+  // The model used for billable generation/grading once a user has purchased.
+  // Credit prices are calibrated to this model, so paid actions must not use a
+  // per-user model.
   PAID_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4.6"),
+  // The model used for users who have not yet purchased (still on welcome
+  // credits). A free OpenRouter model — the swap is fully server-side and
+  // invisible to the user. The instant their first top-up completes they are
+  // upgraded to PAID_MODEL automatically. See services/tier.ts.
+  FREE_MODEL: z.string().min(1).default("meta-llama/llama-3.3-70b-instruct:free"),
 
   // UddoktaPay (pay-as-you-go credit top-ups; bKash personal configured in panel)
   UDDOKTAPAY_BASE_URL: z.string().url().default("https://sandbox.uddoktapay.com"),
   UDDOKTAPAY_API_KEY: z.string().min(1).optional(),
   // Credits granted to a brand-new wallet so users can try before buying.
-  WELCOME_CREDITS: z.coerce.number().int().min(0).default(20),
+  WELCOME_CREDITS: z.coerce.number().int().min(0).default(30),
 
   // OpenAI TTS
   OPENAI_API_KEY: z.string().min(1).optional(),
