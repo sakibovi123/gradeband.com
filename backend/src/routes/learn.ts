@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { env } from "../lib/env.js";
 import { asyncHandler } from "../lib/http.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
@@ -8,6 +7,7 @@ import { LEARN_PRICES, GUIDE_PRICES } from "../lib/pricing.js";
 import { charge, refund } from "../services/wallet.js";
 import { gradeWritingTask, generateModelAnswer } from "../services/grading.js";
 import { generateReadingGuide, generateWritingGuide } from "../services/generation.js";
+import { resolveModelForUser } from "../services/tier.js";
 
 export const learnRouter = Router();
 
@@ -26,7 +26,8 @@ learnRouter.post(
     const balance = await charge(req.user.id, LEARN_PRICES.grade, { reason: "learn:grade" });
     let grade;
     try {
-      grade = await gradeWritingTask(task, prompt, text, env.PAID_MODEL);
+      const model = await resolveModelForUser(req.user.id);
+      grade = await gradeWritingTask(task, prompt, text, model);
     } catch (err) {
       await refund(req.user.id, LEARN_PRICES.grade, { reason: "learn:grade:refund" }).catch(() => {});
       throw err;
@@ -47,7 +48,8 @@ learnRouter.post(
     const balance = await charge(req.user.id, LEARN_PRICES.model, { reason: "learn:model" });
     let answer;
     try {
-      answer = await generateModelAnswer(task, prompt, env.PAID_MODEL);
+      const model = await resolveModelForUser(req.user.id);
+      answer = await generateModelAnswer(task, prompt, model);
     } catch (err) {
       await refund(req.user.id, LEARN_PRICES.model, { reason: "learn:model:refund" }).catch(() => {});
       throw err;
@@ -71,10 +73,11 @@ learnRouter.post(
     const balance = await charge(req.user.id, price, { reason: `learn:generate:${kind}` });
     let drill;
     try {
+      const model = await resolveModelForUser(req.user.id);
       drill =
         kind === "reading"
-          ? await generateReadingGuide(env.PAID_MODEL)
-          : await generateWritingGuide(env.PAID_MODEL);
+          ? await generateReadingGuide(model)
+          : await generateWritingGuide(model);
     } catch (err) {
       await refund(req.user.id, price, { reason: `learn:generate:${kind}:refund` }).catch(() => {});
       throw err;
